@@ -6,7 +6,7 @@ auto8 belongs to the operating domain of opsotter (`~/dev/opsotter`, private, Gi
 
 ## How work happens here
 
-Read `docs/SDLC.md` before you start any work. It describes the life cycle of a requirement: where requirements live, the states, the build, the gates and the summaries. The plan for the tools of this process is `docs/plans/2026-11-20-1039-feat-requirements-workflow-plan.md`.
+Read `docs/SDLC.md` and `docs/ARCHITECTURE.md` before you start any work. `docs/SDLC.md` describes the life cycle of a requirement: where requirements live, the states, the build, the gates and the summaries. The plan for the tools of this process is `docs/plans/2026-11-20-1039-feat-requirements-workflow-plan.md`.
 
 These rules from the process apply to every agent:
 
@@ -40,6 +40,7 @@ The repository carries the output style in `.claude/output-styles/simple-english
 | `cmd/auto8-flow/`, `internal/flow/` | The workflow tool of the development process |
 | `.github/auto8/` | The prompt of the build agent and the publish script of the build workflow |
 | `docs/SDLC.md` | The development life cycle |
+| `docs/ARCHITECTURE.md` | The architecture and the tech stack that every plan and build follows |
 | `docs/plans/` | Requirements and plans (unified plans of the Compound Engineering plugin) |
 | `docs/ideation/` | Ideas from `ce-ideate` (no issues) |
 

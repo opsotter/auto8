@@ -183,8 +183,8 @@ func TestLoadPlansOfThisRepository(t *testing.T) {
 	}
 	for _, p := range plans {
 		if p.Topic == "requirements-workflow" {
-			if n := len(p.Requirements); n != 32 {
-				t.Fatalf("the workflow plan has %d requirements, want R1 to R32", n)
+			if n := len(p.Requirements); n != 35 {
+				t.Fatalf("the workflow plan has %d requirements, want R1 to R35", n)
 			}
 		}
 		if len(p.Requirements) == 0 {

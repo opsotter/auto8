@@ -29,6 +29,8 @@ Product Contract preservation: changed R5, R7, R10, R17, R19, R20, R25, AE8, AE1
 
 On 2026-11-21, the operator changed R6. The issue body now carries a copy of the requirement text. On the same day, every requirement got a short bold name.
 
+Also on 2026-11-21, the operator changed R10 and R19 and added R33 to R35. Without a fixed architecture, a build on ready requirements invents its own stack and order. R33: one architecture document for all plans. R34: a requirement is built only after the operator approved the Planning Contract of its plan. R10 and R35: a build follows the order of the Implementation Units.
+
 ### Summary
 
 Each requirement of auto8 lives in a plan file and has one GitHub issue that shows its state on a project board. The operator marks a requirement ready, and a scheduled agent builds it to a pull request. If all required jobs pass, GitHub merges the pull request without the operator. GitHub holds each change to TX control (code that can make the station transmit) or to the process files until the operator approves it. Work in another project waits for the operator.
@@ -61,7 +63,8 @@ auto8 can make the station transmit, through WSJT-X or MSHV. A gate is a conditi
 - The sync approach is A: sync from the plan files, one issue for each requirement, state as labels. Governs R3 to R9. (session-settled: user-directed, chosen over parent issues with sub-issues and over a done state that only a passing test can set.)
 - The operator asked for a dedicated description of the process and for the simple-english rules on all text. Governs R2, R23, R24.
 - Ideas get no issue. Only a requirement in a plan file gets one, so the board shows only real requirements. Governs R5.
-- One build covers the ready requirements of one plan, because a plan is the unit that `ce-plan` and `ce-work` build. Governs R10.
+- One build covers the next pull request of one plan, in the order of its Implementation Units. The units carry the order and the base that the later units need. Governs R10, R35. (session-settled: user-directed on 2026-11-21, chosen over one build for all ready requirements of a plan, because a requirement can span several units.)
+- One architecture document governs all plans, and the operator approves the Planning Contract of a plan before its requirements are built. Governs R33, R34. (session-settled: user-directed on 2026-11-21, chosen over decisions that live only inside each feature plan.)
 
 ### Requirements
 
@@ -82,7 +85,7 @@ Sync
 
 Build
 
-- R10. **One build per plan.** A build is one run of the build agent on one plan. A schedule starts the build agent a few times a day, and at most one build runs at a time. Each build takes the plan of the oldest `ready` issue and builds all `ready` requirements of that plan.
+- R10. **One build per plan.** A build is one run of the build agent on one plan. A schedule starts the build agent a few times a day, and at most one build runs at a time. Each build takes the plan of the oldest `ready` issue and builds the next pull request of that plan (R35).
 - R11. **Clean up a stopped build.** If a build stops without a result, the next run of the build agent sets the label `blocked` on its issues and names that reason.
 - R12. **Read requirements only from the plan.** The build agent reads the requirement text from the plan file on `main`. It never takes instructions from issue bodies, comments, or labels that someone other than the operator set.
 - R13. **No requirement change in a build.** A pull request of the build agent does not change the text of any requirement.
@@ -100,10 +103,16 @@ Gates
 Holds
 
 - R18. **Operator approves TX control changes.** A pull request that touches TX control merges only after the operator approves it. GitHub enforces this with a required review by the operator as the code owner of the TX control code. TX control is any code that can make WSJT-X or MSHV transmit. It is also the code that decides the time at which auto8 can ask for a transmission, such as the arm and presence logic. TX control code lives only in the marked paths that the operator owns. If the build agent judges that a change touches TX control, it also sets the label `needs-operator`.
-- R19. **Operator approves process file changes.** A pull request that changes a process file merges only after the operator approves it, in the same way as R18. The build agent sets the label `needs-operator`. The process files are `.github/` (with the code owner file), `.claude/`, `tools/simple-english/`, the workflow tool, the integration test peers, `CLAUDE.md` and `docs/SDLC.md`. The agent identity cannot change workflow files at all. If a build needs such a change, it sets the label `blocked` and describes the change.
+- R19. **Operator approves process file changes.** A pull request that changes a process file merges only after the operator approves it, in the same way as R18. The build agent sets the label `needs-operator`. The process files are `.github/` (with the code owner file), `.claude/`, `tools/simple-english/`, the workflow tool, the integration test peers, `CLAUDE.md` and `docs/SDLC.md`. `docs/ARCHITECTURE.md` is a process file too. The agent identity cannot change workflow files at all. If a build needs such a change, it sets the label `blocked` and describes the change.
 - R20. **No code in another project.** If a requirement needs a change in another project, the build agent writes no code there. It describes the change in the issue and sets the label `blocked`. Another project is every repository other than `opsotter/auto8`, for example `kgbvax/opsotter` (with chase-queue), horstreporter and StationA. A change to a vendored copy of code from another project counts as a change in that project. So does a change to the MQTT topics and payloads that another project reads.
 - R21. **Block on an unfixed failure.** A build or a job can fail. If the build agent cannot fix the failure in the same build, it sets the label `blocked` on the issue and names the reason.
 - R31. **Operator rejects a held pull request.** If the operator closes a held pull request without a merge, or asks for changes, its issues go to `blocked` with that reason. The build agent does not act on review comments.
+
+Architecture and readiness
+
+- R33. **One architecture for all plans.** `docs/ARCHITECTURE.md` holds the architecture and the tech stack of auto8, and every plan follows it. A plan that needs a different decision names the change in a key technical decision. The operator approves that change with the plan. The build agent never changes `docs/ARCHITECTURE.md`.
+- R34. **Ready needs an approved Planning Contract.** The build agent builds a requirement only in a plan with an approved Planning Contract that has Implementation Units. The operator records the approval in the plan frontmatter as `planning_approved: <date>`. The pick step takes no `ready` issue of a plan without this key, and the sync step reports such an issue. If the operator changes the Planning Contract later, the operator sets a new date.
+- R35. **Build in the order of the units.** A build builds the next pull request of the Implementation Units of its plan, in their order. Each requirement that this pull request names must be `ready`. It follows the key technical decisions of the plan and `docs/ARCHITECTURE.md`, and it plans only inside the units of this pull request. If a unit does not fit them, the build stops, and the issues go to `blocked` with the reason. A requirement is done at the merge of the last pull request that names it.
 
 Close
 
@@ -402,7 +411,7 @@ Waits on: nothing.
   5. The marker holds plan path, R-ID and hash in an HTML comment. A body without a valid marker is not an App issue.
 - **Patterns to follow:** the standard Go test layout of `cmd/auto8`. Table tests with fixture files.
 - **Test scenarios:**
-  - This plan file as a fixture gives R1 to R32 with stable hashes, and no "Governs" or "Covers" line becomes a requirement.
+  - This plan file as a fixture gives R1 to R35 with stable hashes, and no "Governs" or "Covers" line becomes a requirement.
   - The draft v1 plan (no unified contract) gives no requirements.
   - A requirement with extra spaces and line breaks gives the same hash as the clean form.
   - Two plans with the same topic give a report line and no requirements for either plan.
@@ -640,7 +649,7 @@ Waits on: PR 5, merge order only.
 ### U14. Build workflow and prompt
 
 - **Goal:** run one scheduled build per period under the App identity.
-- **Requirements:** R10 to R14, R18 to R21, R27, R32, AE1 to AE3, AE5, AE8, AE10, KTD1, KTD7, KTD15, KTD17, KTD18.
+- **Requirements:** R10 to R14, R18 to R21, R27, R32 to R35, AE1 to AE3, AE5, AE8, AE10, KTD1, KTD7, KTD15, KTD17, KTD18.
 - **Dependencies:** U4, U5, U12.
 - **Files:** `.github/workflows/build.yml`, `.github/auto8/build-prompt.md`.
 - **Approach:**
@@ -767,5 +776,7 @@ The entries below are review items left for the author. They do not block implem
 ---
 
 ## Deferred to Follow-Up Work
+
+- R33 to R35 are new on 2026-11-21. The units of this plan do not cover them all yet. The pick step (U4) must read `planning_approved` and the order of the Implementation Units. The close step (U6) must keep an issue open up to the merge of the last pull request that names it. The build prompt (U14) must tell the agent to follow the Planning Contract and not to plan again outside the units of its pull request. The code owner file lists `docs/ARCHITECTURE.md` since 2026-11-21. Run `ce-plan` on this plan to add these changes to the units.
 
 - Update the pointer to auto8 in the opsotter README and `CLAUDE.md` from `kgbvax/auto8` to `opsotter/auto8`. This is a change in another project, so the operator or a separate session makes it.

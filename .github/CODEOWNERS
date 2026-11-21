@@ -11,6 +11,7 @@
 /test/integration/peers/ @kgbvax
 /CLAUDE.md @kgbvax
 /docs/SDLC.md @kgbvax
+/docs/ARCHITECTURE.md @kgbvax
 
 # TX control code: all code that can make WSJT-X or MSHV transmit.
 /internal/tx/ @kgbvax

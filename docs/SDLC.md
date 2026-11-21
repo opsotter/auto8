@@ -20,6 +20,8 @@ Other GitHub users can read the repository and open issues, because the reposito
 
 A requirement is a numbered statement in a plan file in `docs/plans`, for example `R3`. A plan file comes from the skills `ce-brainstorm` and `ce-plan` of the Compound Engineering (CE) plugin. It has the format `ce-unified-plan/v1`. The plan file is the only place where anyone writes or changes the text of a requirement (R1).
 
+The architecture and the tech stack of auto8 live in `docs/ARCHITECTURE.md`. Every plan follows that document. A plan that needs a different decision names the change in a key technical decision, and the operator approves it with the plan (R33).
+
 An idea is a possible direction that is not a requirement yet. Ideas from `ce-ideate` stay in `docs/ideation` and get no issue.
 
 Each requirement has one GitHub issue. The issue title names the plan topic, the requirement ID and the requirement name, for example `decoder-v1 R3: <name>`. The issue body carries a copy of the requirement text and links to it in the plan file (R6). The plan file stays the only place where anyone writes or changes the text. A label on the issue gives the state of the requirement.
@@ -52,11 +54,13 @@ The operator runs `ce-brainstorm` on one direction. The result is a plan file in
 
 ### 3. Refine
 
-The operator changes the plan file until the requirements are right. `ce-doc-review` and `ce-plan` help at this stage. After each change, the sync step updates the issues. If a requirement leaves the plan, the sync step closes its issue as not planned (R8).
+The operator changes the plan file until the requirements are right. `ce-doc-review` and `ce-plan` help at this stage. `ce-plan` adds the Planning Contract and the Implementation Units. The Planning Contract holds the key technical decisions. The Implementation Units give the order of the pull requests. After each change, the sync step updates the issues. If a requirement leaves the plan, the sync step closes its issue as not planned (R8).
 
 If someone changed an issue body on GitHub, the sync step does not overwrite it. It reports the issue, and the operator decides which text is right (R6).
 
 ### 4. Mark ready
+
+Before the operator marks a requirement ready, the plan must have a Planning Contract with Implementation Units. The Planning Contract must fit `docs/ARCHITECTURE.md`. The operator then records the approval in the plan frontmatter as `planning_approved: <date>` (R34). The build agent takes no requirement of a plan without this key. If the operator changes the Planning Contract later, the operator sets a new date.
 
 The operator sets the label `ready` on each issue that the operator wants built. GitHub removes a label `ready` that any other identity sets (R26). The build agent works on no issue without this label.
 
@@ -66,16 +70,16 @@ If the text of a `ready` or `blocked` requirement changes later, the sync step s
 
 The workflow `.github/workflows/build.yml` starts a build every four hours. The schedule acts only while the repository variable `AUTO8_BUILD_ENABLED` is `true`. The operator can also start the workflow by hand in the Actions tab. A manual start always runs. A manual start with `dry_run` shows the plan that the next build takes, and it changes nothing. GitHub turns off the schedule of a public repository after 60 days without activity. If that happens, the operator turns the schedule on again in the Actions tab. At most one build runs at a time (R10). The build agent does these steps:
 
-1. It takes the oldest issue with the label `ready`.
-2. It collects all ready requirements of the same plan into one build. It sets the label `building` on their issues.
-3. It reads the requirement text from the plan file on `main`, never from the issue (R12).
-4. It plans and codes the change with `ce-plan` and `ce-work`. It does not change the text of any requirement (R13).
+1. It takes the oldest issue with the label `ready` in a plan with `planning_approved`.
+2. It takes the next pull request in the Implementation Units of that plan. Each requirement that this pull request names must be `ready`. It sets the label `building` on their issues (R35).
+3. It reads the requirement text and the Planning Contract from the plan file on `main`, never from the issue (R12).
+4. It codes the units of this pull request with `ce-work`. It follows the key technical decisions and `docs/ARCHITECTURE.md`, and it plans only inside these units. It does not change the text of any requirement (R13).
 5. It runs `ce-code-review` and the simple-english linter, and fixes what they find (R14).
 6. It opens a pull request that names its issues. The close step closes the issues after the merge and writes the summaries.
 
 The workflow runs the build in three jobs on separate runners. The first job takes the plan and sets `building`. The second job runs the build agent with a token that can only read, and the App key never comes to its runner. The agent writes its commits, the pull request text and its state decisions into files. The third job runs without Claude and checks these files. It accepts only the states `blocked` and `needs-operator`, and only for the picked issues. Then it pushes the branch and opens the pull request.
 
-If a build stops without a result, the next run sets the label `blocked` on its issues and names that reason (R11). While a plan has an open pull request of the build agent, no build takes that plan again (R32). If a requirement text changes during a build, the pull request does not merge, and the issue goes to `blocked` (R29).
+If a unit does not fit the key technical decisions or `docs/ARCHITECTURE.md`, the build stops. Its issues go to `blocked` with the reason (R35). If a build stops without a result, the next run sets the label `blocked` on its issues and names that reason (R11). While a plan has an open pull request of the build agent, no build takes that plan again (R32). If a requirement text changes during a build, the pull request does not merge, and the issue goes to `blocked` (R29).
 
 ### 6. Gates
 
@@ -94,7 +98,7 @@ The repository variable `AUTO8_MERGE_ENABLED` turns the merge on. While it is no
 
 TX control is any code that can make WSJT-X or MSHV transmit. It is also the code that decides the time at which auto8 can ask for a transmission, such as the arm and presence logic. TX control code lives only in marked paths that the operator owns as code owner (R18).
 
-The process files are `.github/` (with the code owner file), `.claude/` and `tools/simple-english/`. The workflow tool, the integration test peers, `CLAUDE.md` and this document are process files too (R19). The agent identity cannot change workflow files at all. If a build needs such a change, it sets the label `blocked` and describes the change.
+The process files are `.github/` (with the code owner file), `.claude/` and `tools/simple-english/`. The workflow tool, the integration test peers, `CLAUDE.md`, `docs/ARCHITECTURE.md` and this document are process files too (R19). The agent identity cannot change workflow files at all. If a build needs such a change, it sets the label `blocked` and describes the change.
 
 If a pull request changes TX control code or a process file, GitHub does not merge it before the operator approves it. The build agent also sets the label `needs-operator` on the issues of such a pull request.
 
@@ -104,7 +108,7 @@ A build or a job can fail. If the build agent cannot fix the failure in the same
 
 ### 8. Close
 
-When a pull request of the App merges, the workflow `.github/workflows/close.yml` closes its issues. Each closed issue gets one comment with a feature summary and an implementation summary (R22). If a pull request of the App closes without a merge, its issues go to `blocked` (R31). The operator can also start the close workflow by hand with the number of a merged pull request. This repairs a missed close. The feature summary says what the operator can now do, in the words of the requirement. The implementation summary says what changed in the code and the tests. It links to the pull request and its commits.
+When a pull request of the App merges, the workflow `.github/workflows/close.yml` closes its issues. A requirement that more pull requests name stays open up to the merge of the last of them (R35). Each closed issue gets one comment with a feature summary and an implementation summary (R22). If a pull request of the App closes without a merge, its issues go to `blocked` (R31). The operator can also start the close workflow by hand with the number of a merged pull request. This repairs a missed close. The feature summary says what the operator can now do, in the words of the requirement. The implementation summary says what changed in the code and the tests. It links to the pull request and its commits.
 
 ### 9. Deploy
 
@@ -122,5 +126,6 @@ On 2026-11-21 the repository has the workflow tool `auto8-flow` and the workflow
 
 1. The label guard.
 2. The integration job and its test peers.
+3. The check of `planning_approved` and of the order of the units in the pick step and the build prompt (R34, R35).
 
 The workflows need the App and the secret `CLAUDE_CODE_OAUTH_TOKEN` of step O2. Until the integration job exists, the merge step waits for it. If the operator wants merges before that, the operator sets `AUTO8_REQUIRED_JOBS` to `test,writing,requirements`.
